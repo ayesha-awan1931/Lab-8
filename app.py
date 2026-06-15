@@ -1,15 +1,14 @@
 import streamlit as st
-from transformers import TFAutoModelForSeq2SeqLM, AutoTokenizer
-import tensorflow as tf
+from transformers import pipeline
 
-# ── Page config ──────────────────────────────────────────────────────────────
+# ── Page config ───────────────────────────────────────────────────────────────
 st.set_page_config(
     page_title="Language Translator",
     page_icon="🌐",
     layout="centered",
 )
 
-# ── Custom CSS ────────────────────────────────────────────────────────────────
+# ── CSS ───────────────────────────────────────────────────────────────────────
 st.markdown("""
 <style>
     .main-title {
@@ -21,7 +20,7 @@ st.markdown("""
     }
     .subtitle {
         text-align: center;
-        color: #555;
+        color: #666;
         font-size: 1rem;
         margin-bottom: 2rem;
     }
@@ -30,155 +29,113 @@ st.markdown("""
         border-left: 4px solid #4361ee;
         border-radius: 8px;
         padding: 1rem 1.2rem;
-        font-size: 1.05rem;
+        font-size: 1.1rem;
         color: #1a1a2e;
         margin-top: 1rem;
+        line-height: 1.7;
     }
-    .model-badge {
+    .model-tag {
         font-size: 0.75rem;
-        color: #888;
+        color: #999;
         text-align: right;
-        margin-top: 0.4rem;
-    }
-    .stTextArea textarea {
-        font-size: 1rem;
+        margin-top: 0.5rem;
     }
 </style>
 """, unsafe_allow_html=True)
 
-# ── Language pairs supported by Helsinki-NLP/opus-mt-* ───────────────────────
+# ── Language pairs (Helsinki-NLP opus-mt) ─────────────────────────────────────
 LANGUAGE_PAIRS = {
-    "English → French":       ("en", "fr"),
-    "English → Spanish":      ("en", "es"),
-    "English → German":       ("en", "de"),
-    "English → Italian":      ("en", "it"),
-    "English → Portuguese":   ("en", "pt"),
-    "English → Dutch":        ("en", "nl"),
-    "English → Russian":      ("en", "ru"),
-    "English → Arabic":       ("en", "ar"),
-    "English → Chinese":      ("en", "zh"),
-    "English → Japanese":     ("en", "jap"),
-    "English → Hindi":        ("en", "hi"),
-    "English → Urdu":         ("en", "ur"),
-    "English → Turkish":      ("en", "tr"),
-    "English → Polish":       ("en", "pl"),
-    "English → Korean":       ("en", "ko"),
-    "French → English":       ("fr", "en"),
-    "Spanish → English":      ("es", "en"),
-    "German → English":       ("de", "en"),
-    "Italian → English":      ("it", "en"),
-    "Portuguese → English":   ("pt", "en"),
-    "Dutch → English":        ("nl", "en"),
-    "Russian → English":      ("ru", "en"),
-    "Arabic → English":       ("ar", "en"),
-    "Chinese → English":      ("zh", "en"),
-    "Hindi → English":        ("hi", "en"),
-    "Urdu → English":         ("ur", "en"),
-    "Turkish → English":      ("tr", "en"),
+    "English → French":     "Helsinki-NLP/opus-mt-en-fr",
+    "English → Spanish":    "Helsinki-NLP/opus-mt-en-es",
+    "English → German":     "Helsinki-NLP/opus-mt-en-de",
+    "English → Italian":    "Helsinki-NLP/opus-mt-en-it",
+    "English → Portuguese": "Helsinki-NLP/opus-mt-en-pt",
+    "English → Dutch":      "Helsinki-NLP/opus-mt-en-nl",
+    "English → Russian":    "Helsinki-NLP/opus-mt-en-ru",
+    "English → Arabic":     "Helsinki-NLP/opus-mt-en-ar",
+    "English → Chinese":    "Helsinki-NLP/opus-mt-en-zh",
+    "English → Hindi":      "Helsinki-NLP/opus-mt-en-hi",
+    "English → Urdu":       "Helsinki-NLP/opus-mt-en-ur",
+    "English → Turkish":    "Helsinki-NLP/opus-mt-en-tr",
+    "English → Polish":     "Helsinki-NLP/opus-mt-en-pl",
+    "French → English":     "Helsinki-NLP/opus-mt-fr-en",
+    "Spanish → English":    "Helsinki-NLP/opus-mt-es-en",
+    "German → English":     "Helsinki-NLP/opus-mt-de-en",
+    "Italian → English":    "Helsinki-NLP/opus-mt-it-en",
+    "Portuguese → English": "Helsinki-NLP/opus-mt-pt-en",
+    "Dutch → English":      "Helsinki-NLP/opus-mt-nl-en",
+    "Russian → English":    "Helsinki-NLP/opus-mt-ru-en",
+    "Arabic → English":     "Helsinki-NLP/opus-mt-ar-en",
+    "Chinese → English":    "Helsinki-NLP/opus-mt-zh-en",
+    "Hindi → English":      "Helsinki-NLP/opus-mt-hi-en",
+    "Urdu → English":       "Helsinki-NLP/opus-mt-ur-en",
+    "Turkish → English":    "Helsinki-NLP/opus-mt-tr-en",
 }
 
-def get_model_name(src: str, tgt: str) -> str:
-    return f"Helsinki-NLP/opus-mt-{src}-{tgt}"
-
 @st.cache_resource(show_spinner=False)
-def load_model(model_name: str):
-    """Load tokenizer + TF model; cached so it only runs once per pair."""
-    tokenizer = AutoTokenizer.from_pretrained(model_name)
-    model = TFAutoModelForSeq2SeqLM.from_pretrained(model_name)
-    return tokenizer, model
-
-def translate(text: str, tokenizer, model) -> str:
-    inputs = tokenizer(
-        text,
-        return_tensors="tf",
-        padding=True,
-        truncation=True,
-        max_length=512,
-    )
-    translated = model.generate(
-        **inputs,
-        max_length=512,
-        num_beams=4,
-        early_stopping=True,
-    )
-    return tokenizer.decode(translated[0], skip_special_tokens=True)
+def load_pipeline(model_name: str):
+    """Load translation pipeline once and cache it."""
+    return pipeline("translation", model=model_name)
 
 # ── UI ────────────────────────────────────────────────────────────────────────
 st.markdown('<div class="main-title">🌐 Language Translator</div>', unsafe_allow_html=True)
 st.markdown(
-    '<div class="subtitle">Powered by Helsinki-NLP / Opus-MT models · TensorFlow · HuggingFace</div>',
+    '<div class="subtitle">Helsinki-NLP · Opus-MT · HuggingFace · No API key needed</div>',
     unsafe_allow_html=True,
 )
 
-col1, col2 = st.columns([3, 1])
-with col1:
-    pair_choice = st.selectbox("Translation direction", list(LANGUAGE_PAIRS.keys()))
-with col2:
-    st.markdown("<br>", unsafe_allow_html=True)
-    beam_size = st.selectbox("Beam size", [1, 2, 4, 8], index=2)
-
-src_code, tgt_code = LANGUAGE_PAIRS[pair_choice]
-model_name = get_model_name(src_code, tgt_code)
+pair_choice = st.selectbox("Select translation direction", list(LANGUAGE_PAIRS.keys()))
+model_name  = LANGUAGE_PAIRS[pair_choice]
 
 source_text = st.text_area(
-    "Source text",
+    "Enter text to translate",
     placeholder="Type or paste your text here…",
     height=160,
     max_chars=1000,
 )
+st.caption(f"{len(source_text)} / 1000 characters")
 
-char_count = len(source_text)
-st.caption(f"{char_count} / 1000 characters")
-
-translate_clicked = st.button("Translate ✨", use_container_width=True, type="primary")
-
-if translate_clicked:
+if st.button("Translate ✨", use_container_width=True, type="primary"):
     if not source_text.strip():
         st.warning("Please enter some text to translate.")
     else:
-        with st.spinner(f"Loading model `{model_name}` and translating…"):
+        with st.spinner(f"Loading `{model_name}` and translating…"):
             try:
-                tokenizer, model = load_model(model_name)
-                result = translate(source_text.strip(), tokenizer, model)
+                translator = load_pipeline(model_name)
+                output = translator(
+                    source_text.strip(),
+                    max_length=512,
+                    clean_up_tokenization_spaces=True,
+                )
+                result = output[0]["translation_text"]
                 st.markdown(
                     f'<div class="result-box">{result}</div>',
                     unsafe_allow_html=True,
                 )
                 st.markdown(
-                    f'<div class="model-badge">Model: <code>{model_name}</code></div>',
+                    f'<div class="model-tag">Model: <code>{model_name}</code></div>',
                     unsafe_allow_html=True,
                 )
-                # Copy helper
-                st.code(result, language=None)
+                st.code(result, language=None)   # easy copy
             except Exception as e:
-                st.error(f"Translation failed: {e}")
-                st.info(
-                    "Some language pairs (e.g. English → Japanese/Korean) may need "
-                    "slightly different model slugs. Check "
-                    "https://huggingface.co/Helsinki-NLP for the exact repo name."
-                )
+                st.error(f"Translation error: {e}")
 
-# ── Sidebar info ──────────────────────────────────────────────────────────────
+# ── Sidebar ───────────────────────────────────────────────────────────────────
 with st.sidebar:
     st.header("ℹ️ About")
     st.markdown("""
-This app uses **free, open-source** machine-translation models from
-[Helsinki-NLP](https://huggingface.co/Helsinki-NLP) on HuggingFace —
-no API key required.
+Translate between **25 language pairs** using free
+[Helsinki-NLP](https://huggingface.co/Helsinki-NLP) Opus-MT models
+from HuggingFace — no API key, no cost.
 
 **Stack**
-- 🤗 `transformers` (HuggingFace)
-- 🧠 TensorFlow backend
+- 🤗 `transformers` pipeline API
 - 🚀 Streamlit UI
+- ☁️ Streamlit Cloud deployment
 
-**How it works**
-1. Select a language pair.
-2. Paste your text.
-3. Click **Translate** — the model is downloaded once and cached locally.
-
-**Beam size**
-Higher beam sizes give better quality but are slower.
-`4` is a good default.
+**Tips**
+- First run downloads the model (~300 MB); subsequent runs use the cache.
+- Keep text under 1000 characters for best speed.
     """)
     st.divider()
-    st.caption("Models are cached after first download — subsequent translations are fast.")
+    st.caption(f"Active model: `{model_name}`")
