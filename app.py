@@ -1,5 +1,5 @@
 import streamlit as st
-from transformers import pipeline
+from transformers import MarianMTModel, MarianTokenizer
 
 # ── Page config ───────────────────────────────────────────────────────────────
 st.set_page_config(
@@ -73,9 +73,22 @@ LANGUAGE_PAIRS = {
 }
 
 @st.cache_resource(show_spinner=False)
-def load_pipeline(model_name: str):
-    """Load translation pipeline once and cache it."""
-    return pipeline("translation", model=model_name)
+def load_model(model_name: str):
+    """Load MarianMT tokenizer + model once and cache."""
+    tokenizer = MarianTokenizer.from_pretrained(model_name)
+    model     = MarianMTModel.from_pretrained(model_name)
+    return tokenizer, model
+
+def translate(text: str, tokenizer, model) -> str:
+    tokens = tokenizer(
+        [text],
+        return_tensors="pt",
+        padding=True,
+        truncation=True,
+        max_length=512,
+    )
+    translated = model.generate(**tokens, max_length=512, num_beams=4, early_stopping=True)
+    return tokenizer.decode(translated[0], skip_special_tokens=True)
 
 # ── UI ────────────────────────────────────────────────────────────────────────
 st.markdown('<div class="main-title">🌐 Language Translator</div>', unsafe_allow_html=True)
@@ -101,13 +114,8 @@ if st.button("Translate ✨", use_container_width=True, type="primary"):
     else:
         with st.spinner(f"Loading `{model_name}` and translating…"):
             try:
-                translator = load_pipeline(model_name)
-                output = translator(
-                    source_text.strip(),
-                    max_length=512,
-                    clean_up_tokenization_spaces=True,
-                )
-                result = output[0]["translation_text"]
+                tokenizer, model = load_model(model_name)
+                result = translate(source_text.strip(), tokenizer, model)
                 st.markdown(
                     f'<div class="result-box">{result}</div>',
                     unsafe_allow_html=True,
@@ -116,7 +124,7 @@ if st.button("Translate ✨", use_container_width=True, type="primary"):
                     f'<div class="model-tag">Model: <code>{model_name}</code></div>',
                     unsafe_allow_html=True,
                 )
-                st.code(result, language=None)   # easy copy
+                st.code(result, language=None)
             except Exception as e:
                 st.error(f"Translation error: {e}")
 
@@ -129,7 +137,7 @@ Translate between **25 language pairs** using free
 from HuggingFace — no API key, no cost.
 
 **Stack**
-- 🤗 `transformers` pipeline API
+- 🤗 `MarianMTModel` + `MarianTokenizer`
 - 🚀 Streamlit UI
 - ☁️ Streamlit Cloud deployment
 
